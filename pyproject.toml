@@ -28,8 +28,8 @@ dependencies = [
 embed = ["sentence-transformers>=2.0"]
 
 [project.urls]
-Homepage = "https://github.com/mattlancaster/slate-memory"
-Documentation = "https://github.com/mattlancaster/slate-memory#readme"
+Homepage = "https://github.com/Scriblio/slate-memory"
+Documentation = "https://github.com/Scriblio/slate-memory#readme"
 
 [tool.setuptools.packages.find]
 include = ["slate_memory*"]
