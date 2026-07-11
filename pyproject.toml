@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slate-memory"
+version = "0.1.0"
+description = "One-shot attractor memory for LLMs — vector-search accuracy at 98% fewer tokens."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    {name = "Matthew Lancaster", email = "mattclancaster@gmail.com"},
+]
+keywords = ["llm", "memory", "rag", "attractor", "hopfield", "retrieval"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+embed = ["sentence-transformers>=2.0"]
+
+[project.urls]
+Homepage = "https://github.com/mattlancaster/slate-memory"
+Documentation = "https://github.com/mattlancaster/slate-memory#readme"
+
+[tool.setuptools.packages.find]
+include = ["slate_memory*"]
