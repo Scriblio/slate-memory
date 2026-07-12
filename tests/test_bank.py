@@ -138,3 +138,58 @@ def test_different_dims():
         w, _, c, _ = b.recall(e)
         assert w["dim"] == dim
         assert c > 0.8
+
+
+def test_recall_with_scores(bank, rng):
+    embs = [_random_emb(rng) for _ in range(5)]
+    for i, e in enumerate(embs):
+        bank.commit(e, {"id": f"fact-{i}"})
+
+    winner, ranked, conf, _ = bank.recall(embs[2], top_k=3, with_scores=True)
+    assert winner["id"] == "fact-2"
+    assert len(ranked) == 3
+    meta, score = ranked[0]
+    assert meta["id"] == "fact-2"          # winner first
+    assert score > 0.9                     # exact match ≈ 1.0
+    assert all(-1.5 <= s <= 1.5 for _, s in ranked)  # weighted overlap can slightly exceed ±1
+    assert ranked[0][1] >= ranked[1][1]    # non-winner tail sorted by overlap
+
+    # default shape unchanged: bare metas
+    _, ranked_plain, _, _ = bank.recall(embs[2], top_k=3)
+    assert isinstance(ranked_plain[0], dict)
+
+
+def test_remove(bank, rng):
+    embs = [_random_emb(rng) for _ in range(6)]
+    for i, e in enumerate(embs):
+        bank.commit(e, {"id": f"p-{i}", "chapter": "one" if i < 4 else "two"})
+
+    removed = bank.remove(lambda m: m["chapter"] == "one")
+    assert removed == 4
+    assert bank.count == 2
+
+    # removed patterns no longer win recall
+    winner, _, _, _ = bank.recall(embs[0])
+    assert winner["chapter"] == "two"
+
+    # survivors still recall exactly
+    winner, _, conf, _ = bank.recall(embs[5])
+    assert winner["id"] == "p-5" and conf > 0.9
+
+    # no-match predicate is a no-op
+    assert bank.remove(lambda m: m.get("chapter") == "nine") == 0
+    assert bank.count == 2
+
+
+def test_remove_then_save_load(bank, rng):
+    embs = [_random_emb(rng) for _ in range(4)]
+    for i, e in enumerate(embs):
+        bank.commit(e, {"id": f"p-{i}"})
+    bank.remove(lambda m: m["id"] == "p-1")
+
+    with tempfile.TemporaryDirectory() as d:
+        bank.save(d)
+        fresh = SlateBank(n_cells=1000, dim=64, seed=42)
+        assert fresh.load(d) == 3
+        winner, _, _, _ = fresh.recall(embs[2])
+        assert winner["id"] == "p-2"

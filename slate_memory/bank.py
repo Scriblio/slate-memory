@@ -131,11 +131,36 @@ class SlateBank:
             results.append(self.commit(emb, meta))
         return results
 
+    def remove(self, predicate) -> int:
+        """Remove every pattern whose meta matches `predicate(meta) -> bool`.
+
+        Returns the number of patterns removed. Use for re-ingestion flows
+        where a source document changed and its old chunks must go:
+
+            bank.remove(lambda m: m.get("chapter_id") == chapter_id)
+        """
+        with self._lock:
+            keep = [
+                (p, m)
+                for p, m in zip(self._patterns, self._meta)
+                if not predicate(m)
+            ]
+            removed = len(self._patterns) - len(keep)
+            if removed:
+                self._patterns = [p for p, _ in keep]
+                self._meta = [m for _, m in keep]
+                self._P = None
+            return removed
+
     # ── read ─────────────────────────────────────────────────────────────
 
     def recall(
-        self, embedding: np.ndarray, top_k: int = 3, max_cycles: int = 5
-    ) -> tuple[dict | None, list[dict], float, int]:
+        self,
+        embedding: np.ndarray,
+        top_k: int = 3,
+        max_cycles: int = 5,
+        with_scores: bool = False,
+    ) -> tuple[dict | None, list, float, int]:
         """Settle into the nearest attractor. Returns (winner, ranked, confidence, cycles).
 
         Parameters
@@ -146,6 +171,11 @@ class SlateBank:
             Number of ranked results to return.
         max_cycles : int
             Maximum settle iterations. Usually converges in 2.
+        with_scores : bool
+            When True, `ranked` is a list of (meta, score) pairs instead of
+            bare metas, where score is the pattern's pre-settle overlap with
+            the query. Cosine-like: ~1 for a match, ~0 for unrelated; may
+            slightly exceed ±1 under distinctiveness weighting.
         """
         with self._lock:
             if not self._patterns:
@@ -166,12 +196,14 @@ class SlateBank:
                 s = s_new
             final = self._overlaps(s)
             winner = int(np.argmax(final))
-            order = np.argsort(-initial)[:top_k]
-            ranked = [self._meta[int(i)] for i in order]
-            if ranked and ranked[0] != self._meta[winner]:
-                ranked = [self._meta[winner]] + [
-                    m for m in ranked if m != self._meta[winner]
-                ][:top_k - 1]
+            order = [int(i) for i in np.argsort(-initial)[:top_k]]
+            if winner in order:
+                order.remove(winner)
+            order = ([winner] + order)[:top_k]
+            if with_scores:
+                ranked = [(self._meta[i], float(initial[i])) for i in order]
+            else:
+                ranked = [self._meta[i] for i in order]
             return self._meta[winner], ranked, float(final[winner]), cycles
 
     def familiar(self, embedding: np.ndarray) -> tuple[dict | None, float]:
