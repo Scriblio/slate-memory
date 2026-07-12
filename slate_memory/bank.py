@@ -160,7 +160,8 @@ class SlateBank:
         top_k: int = 3,
         max_cycles: int = 5,
         with_scores: bool = False,
-    ) -> tuple[dict | None, list, float, int]:
+        with_signals: bool = False,
+    ) -> tuple[dict | None, list, float, int] | tuple[dict | None, list, float, int, dict]:
         """Settle into the nearest attractor. Returns (winner, ranked, confidence, cycles).
 
         Parameters
@@ -176,9 +177,22 @@ class SlateBank:
             bare metas, where score is the pattern's pre-settle overlap with
             the query. Cosine-like: ~1 for a match, ~0 for unrelated; may
             slightly exceed ±1 under distinctiveness weighting.
+        with_signals : bool
+            When True, returns a fifth element: {"familiarity", "margin"},
+            both computed BEFORE settling. `margin` (top1−top2 overlap gap)
+            is the calibrated retrieval-quality signal — correct-vs-wrong
+            AUC 0.88 in the slate-bench limits battery; gate decisions on
+            it. `familiarity` (max overlap) flags out-of-domain queries
+            (AUC 1.00) but does NOT reliably detect a plausible-but-absent
+            fact (AUC ~0.62). The `confidence` value is post-settle depth,
+            NOT correctness (AUC 0.10, inverted — settling reaches the
+            bottom of SOME attractor at ~1.0 whether or not it is the right
+            one); prefer `margin` for any trust decision.
         """
         with self._lock:
             if not self._patterns:
+                if with_signals:
+                    return None, [], 0.0, 0, {"familiarity": 0.0, "margin": 0.0}
                 return None, [], 0.0, 0
             if self._P is None:
                 self._finalize()
@@ -204,6 +218,15 @@ class SlateBank:
                 ranked = [(self._meta[i], float(initial[i])) for i in order]
             else:
                 ranked = [self._meta[i] for i in order]
+            if with_signals:
+                if initial.size >= 2:
+                    two = np.partition(initial, -2)[-2:]
+                    signals = {"familiarity": float(two[-1]),
+                               "margin": float(two[-1] - two[-2])}
+                else:
+                    signals = {"familiarity": float(initial[0]),
+                               "margin": float(initial[0])}
+                return self._meta[winner], ranked, float(final[winner]), cycles, signals
             return self._meta[winner], ranked, float(final[winner]), cycles
 
     def familiar(self, embedding: np.ndarray) -> tuple[dict | None, float]:

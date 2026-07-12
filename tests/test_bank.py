@@ -159,6 +159,41 @@ def test_recall_with_scores(bank, rng):
     assert isinstance(ranked_plain[0], dict)
 
 
+def test_recall_with_signals(bank, rng):
+    embs = [_random_emb(rng) for _ in range(10)]
+    for i, e in enumerate(embs):
+        bank.commit(e, {"id": f"fact-{i}"})
+
+    # exact probe: high familiarity, healthy margin
+    winner, ranked, conf, cycles, sig = bank.recall(embs[3], with_signals=True)
+    assert winner["id"] == "fact-3"
+    assert sig["familiarity"] > 0.9
+    assert sig["margin"] > 0.3
+
+    # junk probe: margin collapses even when settled confidence stays high
+    junk = _random_emb(rng)
+    _, _, _, _, sig_junk = bank.recall(junk, with_signals=True)
+    assert sig_junk["margin"] < sig["margin"]
+    assert sig_junk["familiarity"] < 0.5
+
+    # default shape unchanged: 4-tuple, and composes with with_scores
+    assert len(bank.recall(embs[3])) == 4
+    out = bank.recall(embs[3], with_scores=True, with_signals=True)
+    assert len(out) == 5 and isinstance(out[1][0], tuple)
+
+
+def test_recall_with_signals_empty_and_single(bank, rng):
+    out = bank.recall(_random_emb(rng), with_signals=True)
+    assert len(out) == 5
+    assert out[4] == {"familiarity": 0.0, "margin": 0.0}
+
+    e = _random_emb(rng)
+    bank.commit(e, {"id": "solo"})
+    w, _, _, _, sig = bank.recall(e, with_signals=True)
+    assert w["id"] == "solo"
+    assert np.isfinite(sig["margin"]) and np.isfinite(sig["familiarity"])
+
+
 def test_remove(bank, rng):
     embs = [_random_emb(rng) for _ in range(6)]
     for i, e in enumerate(embs):
