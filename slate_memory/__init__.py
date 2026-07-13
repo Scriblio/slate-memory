@@ -15,4 +15,4 @@
 from slate_memory.bank import SlateBank
 
 __all__ = ["SlateBank"]
-__version__ = "1.0.0"
+__version__ = "1.0.1"

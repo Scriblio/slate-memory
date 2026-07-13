@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.scriblio/slate-memory",
+  "title": "Slate Memory",
+  "description": "Persistent memory for Claude with error-correcting attractor dynamics. Typos and partial queries still find the right answer.",
+  "version": "1.0.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "slate-memory",
+      "version": "1.0.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

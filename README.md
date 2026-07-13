@@ -158,3 +158,5 @@ Full retrieval benchmarks across 5 corruption conditions and 4 capacity levels i
 ## License
 
 Apache 2.0. Patent pending.
+
+<!-- mcp-name: io.github.scriblio/slate-memory -->
