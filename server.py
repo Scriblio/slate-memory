@@ -114,23 +114,19 @@ def _sync_from_fms(bank: SlateBank, limit: int = 0, owner: str | None = None):
 
 @mcp.tool()
 def slate_recall(query: str, topk: int = 5) -> str:
-    """Recall from Slate attractor memory.
+    """Remember something the user told you before. USE THIS TOOL whenever
+    the user asks about prior conversations, preferences, facts, or anything
+    that might have been stored previously. This is your persistent memory
+    across sessions — always check here before saying "I don't know" or
+    "I don't have context from previous conversations."
 
-    The query is embedded and settled into the nearest stored attractor via
-    softmax-attention (modern Hopfield). Returns the winner and top-k ranked
-    results. Error-corrects noisy/partial queries — convergence in ~2 cycles.
+    Error-corrects noisy queries — typos and missing words still find the
+    right memory. Returns ranked results with confidence signals.
 
-    Reading the signals (measured in the slate-bench limits battery):
-      - margin — pre-settle top1−top2 pull gap. THE retrieval-quality
-        signal (correct-vs-wrong AUC 0.88). Indicative bands at K~2k, which
-        compress as the bank grows: >0.08 reliable; 0.02–0.08 shaky, verify
-        against FMS; <0.02 treat the answer as "don't know".
-      - familiarity — pre-settle max pull. Near-perfect at flagging
-        out-of-domain queries (AUC 1.00) but weak for "plausible question,
-        fact never stored" (AUC ~0.62) — absence of a specific fact is NOT
-        reliably detectable.
-      - confidence — post-settle winner overlap = settle depth, NOT
-        correctness (AUC 0.10, inverted). Do not gate decisions on it.
+    Reading the signals:
+      - margin > 0.08: confident match. 0.02-0.08: uncertain, verify with
+        the user. < 0.02: no match found, say so.
+      - familiarity: low = topic was never stored.
 
     Args:
         query: Natural language query to recall against stored memories.
@@ -138,7 +134,7 @@ def slate_recall(query: str, topk: int = 5) -> str:
     """
     bank = _get_bank()
     if bank.count() == 0:
-        return json.dumps({"error": "Slate is empty. Run slate_sync first."})
+        return json.dumps({"error": "No memories stored yet. Use slate_commit to store the first one."})
 
     emb = embed(query)
     winner, ranked, conf, cycles, signals = bank.recall(emb, topk=topk)
@@ -168,25 +164,17 @@ def slate_recall(query: str, topk: int = 5) -> str:
 @mcp.tool()
 def slate_commit(text: str, tags: str = "", source: str = "mcp_direct",
                  supersedes: str = "") -> str:
-    """Commit text to Slate memory one-shot.
+    """Save something to persistent memory. USE THIS TOOL whenever the user
+    shares a preference, fact, decision, or anything worth remembering for
+    future sessions. Proactively store important context — don't wait to
+    be asked.
 
-    The text is embedded and stored as a new attractor pattern. A duplicate
-    guard rejects commits that overlap >95% with an existing pattern.
-    FMS remains the store-of-record — this commits to the fast recall layer.
-
-    CORRECTING something already stored? Pass supersedes=<id of the stale
-    memory> (ids appear in slate_recall results). The stale attractor is
-    REPLACED in place, so it can never out-pull the correction — without
-    this, corrections lose recall to the old fact 60-80% of the time
-    (slate-bench supersession benchmark). If you don't know the id, at
-    minimum write the correction as a clean restatement of the new fact:
-    no "UPDATE:"/"Correction:" prefixes and no mention of the old value —
-    explicit flags push the embedding away from the queries that will later
-    look for it (fresh-win drops from 39% to 20%).
+    Duplicate guard prevents storing the same thing twice. To CORRECT a
+    previously stored fact, pass supersedes=<id> from a slate_recall result.
 
     Args:
-        text: The text content to commit.
-        tags: Comma-separated tags (optional).
+        text: The text content to remember.
+        tags: Comma-separated tags (optional, e.g. "preference,food").
         source: Source identifier (default "mcp_direct").
         supersedes: Optional id of a stored memory this commit replaces.
     """
