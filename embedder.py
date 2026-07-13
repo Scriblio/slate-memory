@@ -38,12 +38,22 @@ def _init():
 
     try:
         from sentence_transformers import SentenceTransformer
+        logger.info(
+            "Downloading embedding model (~90MB, first time only)... "
+            "This may take a few minutes."
+        )
+        print(
+            "[Slate] Downloading embedding model (~90MB, first time only)... "
+            "this may take a few minutes.",
+            file=sys.stderr, flush=True,
+        )
         model = SentenceTransformer("all-MiniLM-L6-v2")
         _embedder = model
         logger.info("Using sentence-transformers MiniLM (384-dim)")
     except ImportError:
         raise RuntimeError(
-            "No embedder available. Install sentence-transformers or set FMS_REPO."
+            "No embedder available. Install sentence-transformers: "
+            "pip install sentence-transformers"
         )
 
 

@@ -218,21 +218,23 @@ def slate_status() -> str:
     })
 
 
-@mcp.tool()
-def slate_sync(owner: str = "", limit: int = 0) -> str:
-    """Sync FMS memory nodes into Slate.
+# Only register slate_sync if FMS database exists on this machine.
+# Tier 1 standalone users shouldn't see an FMS-dependent tool.
+if os.path.exists(FMS_DB):
+    @mcp.tool()
+    def slate_sync(owner: str = "", limit: int = 0) -> str:
+        """Sync FMS memory nodes into Slate (advanced — requires Fractal Memory System).
 
-    Reads non-archived nodes from the FMS database, embeds them, and commits
-    to the Slate. Duplicate guard prevents re-committing existing patterns.
-    Run this once on first setup, then periodically to pick up new FMS stores.
+        Reads non-archived nodes from the FMS database, embeds them, and commits
+        to the Slate. Duplicate guard prevents re-committing existing patterns.
 
-    Args:
-        owner: Filter by owner (e.g. '' for all non-aurelia, 'aurelia' for hers). Empty = no filter.
-        limit: Max rows to sync (0 = all).
-    """
-    bank = _get_bank()
-    count, msg = _sync_from_fms(bank, limit=limit, owner=owner if owner else None)
-    return json.dumps({"synced": count, "detail": msg, "total": bank.count()})
+        Args:
+            owner: Filter by owner. Empty = no filter.
+            limit: Max rows to sync (0 = all).
+        """
+        bank = _get_bank()
+        count, msg = _sync_from_fms(bank, limit=limit, owner=owner if owner else None)
+        return json.dumps({"synced": count, "detail": msg, "total": bank.count()})
 
 
 if __name__ == "__main__":
