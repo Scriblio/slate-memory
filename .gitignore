@@ -7,3 +7,5 @@ build/
 .env
 .venv/
 *.npy
+data/
+.pytest_cache/
